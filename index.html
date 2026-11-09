@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Správa závad - Lipovec</title>
+    
+    <!-- Leaflet CSS & JS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Supabase JS -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <!-- EmailJS SDK -->
+    <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@3/dist/email.min.js"></script>
+    <script type="text/javascript">
+       // Inicializace EmailJS s tvým Public Keyem
+       emailjs.init("PNZ4TBjtyvsUaK67X");
+    </script>
+
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #111; color: #fff; font-family: sans-serif; }
+        #map { width: 100%; height: 100vh; background: #222; }
+        #modal {
+            display: none; position: fixed; bottom: 0; left: 0; width: 100%;
+            background: #1e1e1e; border-top-left-radius: 16px; border-top-right-radius: 16px;
+            /* Větší spodní padding kvůli odznaku Netlify na mobilu */
+            padding: 20px 20px 45px 20px; 
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.5); z-index: 2000; box-sizing: border-box;
+        }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; color: #aaa; }
+        .form-group select, .form-group textarea, .form-group input {
+            width: 100%; padding: 10px; background: #2a2a2a; border: 1px solid #444; border-radius: 6px; color: #fff; box-sizing: border-box;
+        }
+        .btn-container { display: flex; gap: 10px; margin-top: 15px; }
+        .btn { flex: 1; padding: 12px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+        .btn-primary { background: #28a745; color: white; }
+        .btn-secondary { background: #444; color: white; }
+        #debug-banner {
+            position: fixed; top: 10px; left: 50%; transform: translateX(-50%);
+            background: rgba(217, 83, 79, 0.9); color: white; padding: 10px 20px;
+            border-radius: 8px; z-index: 3000; display: none; font-size: 14px; text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="debug-banner"></div>
+    <div id="map"></div>
+
+    <div id="modal">
+        <h3>Nahlásit závadu v obci Lipovec</h3>
+        <div class="form-group">
+            <label>Kategorie</label>
+            <select id="cat">
+                <option value="Nesvítící lampa">💡 Nesvítící lampa</option>
+                <option value="Výmol v silnici">🕳️ Výmol v silnici</option>
+                <option value="Plný koš">🗑️ Plný koš</option>
+                <option value="Nefunkční rozhlas">📢 Nefunkční rozhlas</option>
+                <option value="Jiné">⚠️ Jiné</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>Popis</label>
+            <textarea id="desc" rows="2" placeholder="Podrobnosti..."></textarea>
+        </div>
+        <div class="form-group">
+            <label>Kdo řeší</label>
+            <input type="text" id="assign" placeholder="Např. Obecní úřad">
+        </div>
+        <div class="btn-container">
+            <button class="btn btn-secondary" onclick="document.getElementById('modal').style.display='none'">Zrušit</button>
+            <button class="btn btn-primary" onclick="save()">Uložit závadu</button>
+        </div>
+    </div>
+
+    <script>
+        function showError(msg) {
+            const b = document.getElementById('debug-banner');
+            b.style.display = 'block';
+            b.innerHTML = msg;
+        }
+
+        const SUPABASE_URL = '
